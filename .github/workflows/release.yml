@@ -1,0 +1,157 @@
+name: Build and Release
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+      - release/v*
+      - feature/*
+      - hotfix/*
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for GitVersion
+        
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v4.1.0
+        with:
+          versionSpec: '6.4.0'
+          
+      - name: Determine Version
+        uses: gittools/actions/gitversion/execute@v4.1.0
+        id: gitversion
+        
+      - name: Display GitVersion outputs
+        run: |
+          echo "SemVer: ${{ steps.gitversion.outputs.semVer }}"
+          echo "AssemblySemVer: ${{ steps.gitversion.outputs.assemblySemVer }}"
+          echo "InformationalVersion: ${{ steps.gitversion.outputs.informationalVersion }}"
+          echo "BranchName: ${{ steps.gitversion.outputs.branchName }}"
+          echo "Sha: ${{ steps.gitversion.outputs.sha }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Ref Type: ${{ github.ref_type }}"
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'plugin-files/package-lock.json'
+          
+      - name: Update manifest version
+        run: |
+          cd plugin-files
+          jq --arg version "${{ steps.gitversion.outputs.semVer }}" '.version = $version' manifest.json > tmp.json && mv tmp.json manifest.json
+          echo "Updated manifest.json version to ${{ steps.gitversion.outputs.semVer }}"
+          
+      - name: Install dependencies
+        run: |
+          cd plugin-files
+          npm ci
+          
+      - name: Build plugin
+        run: |
+          cd plugin-files
+          npm run build
+          
+      - name: Verify build outputs
+        run: |
+          cd plugin-files
+          ls -la main.js manifest.json
+          echo "Build verification complete for ref: ${{ github.ref_name }} (type: ${{ github.ref_type }})"
+          
+      # Create release artifacts only for: develop, release/*, and tags (NOT master branch pushes)
+      - name: Create release archive
+        if: |
+          github.ref_name == 'develop' || 
+          startsWith(github.ref_name, 'release/') ||
+          github.ref_type == 'tag'
+        run: |
+          cd plugin-files
+          mkdir -p ../release
+          cp main.js manifest.json ../release/
+          cd ../release
+          zip -r obsidian-ai-readme-unhide-v${{ steps.gitversion.outputs.semVer }}.zip .
+          echo "Created release archive for ${{ github.ref_name }} (${{ github.ref_type }})"
+          
+      - name: Check if version already exists
+        if: |
+          github.ref_name == 'develop' || 
+          startsWith(github.ref_name, 'release/') ||
+          github.ref_type == 'tag'
+        id: check_release
+        run: |
+          if gh release view "v${{ steps.gitversion.outputs.semVer }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Release v${{ steps.gitversion.outputs.semVer }} already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Release v${{ steps.gitversion.outputs.semVer }} does not exist"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Create Release with GitHub CLI
+        if: |
+          (github.ref_name == 'develop' || 
+           startsWith(github.ref_name, 'release/') ||
+           github.ref_type == 'tag') &&
+          steps.check_release.outputs.exists == 'false'
+        run: |
+          # Determine release type based on ref type and branch
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            RELEASE_TYPE="🏷️ Tagged Release"
+            PRERELEASE=""
+            NOTES="Manual tagged release - Obsidian AI README Unhide plugin ${{ github.ref_name }}"
+          elif [ "${{ github.ref_name }}" = "develop" ]; then
+            RELEASE_TYPE="🧪 Development Release"
+            PRERELEASE="--prerelease"
+          elif [[ "${{ github.ref_name }}" == release/* ]]; then
+            RELEASE_TYPE="🎯 Release Candidate"
+            PRERELEASE="--prerelease"
+          fi
+          
+          gh release create "v${{ steps.gitversion.outputs.semVer }}" \
+            --title "$RELEASE_TYPE v${{ steps.gitversion.outputs.semVer }}" \
+            --notes "Automated release from ${{ github.ref_name }} branch - Obsidian AI README Unhide plugin v${{ steps.gitversion.outputs.semVer }}" \
+            $PRERELEASE \
+            ./release/obsidian-ai-readme-unhide-v${{ steps.gitversion.outputs.semVer }}.zip \
+            ./plugin-files/main.js \
+            ./plugin-files/manifest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Log Build/Release Status
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            if [ "${{ steps.check_release.outputs.exists }}" == "true" ]; then
+              echo "✅ Build completed for tag ${{ github.ref_name }}. Release v${{ steps.gitversion.outputs.semVer }} already exists, skipping creation"
+            else
+              echo "✅ Build completed for tag ${{ github.ref_name }}. Successfully created tagged release v${{ steps.gitversion.outputs.semVer }}"
+            fi
+          elif [ "${{ github.ref_name }}" = "master" ]; then
+            echo "✅ Build completed for ${{ github.ref_name }}. No release created (releases only on tag pushes for master)"
+          elif [ "${{ github.ref_name }}" = "develop" ] || [[ "${{ github.ref_name }}" == release/* ]]; then
+            if [ "${{ steps.check_release.outputs.exists }}" == "true" ]; then
+              echo "✅ Build completed for ${{ github.ref_name }}. Release v${{ steps.gitversion.outputs.semVer }} already exists, skipping creation"
+            else
+              echo "✅ Build completed for ${{ github.ref_name }}. Successfully created release v${{ steps.gitversion.outputs.semVer }}"
+            fi
+          else
+            echo "✅ Build completed for ${{ github.ref_name }}. No release created (feature/bugfix branch)"
+          fi

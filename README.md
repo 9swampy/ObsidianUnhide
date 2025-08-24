@@ -1,3 +1,21 @@
+# Obsidian Unhide Plugin
+
+Reveals hidden .ai/README.md files with advanced clone management, sync detection, and seamless UI integration
+
+## Installation
+
+### Via BRAT (Recommended)
+1. Install [BRAT](https://github.com/TfTHacker/obsidian42-brat) from Obsidian Community Plugins
+2. In BRAT settings, click "Add Beta Plugin"
+3. Enter: `https://github.com/9swampy/ObsidianUnhide`
+4. Enable "Obsidian Unhide" in your Community Plugins
+
+### Manual Installation
+1. Download `main.js` and `manifest.json` from the [latest release](https://github.com/9swampy/ObsidianUnhide/releases/latest)
+2. Create folder `your-vault/.obsidian/plugins/obsidian-unhide/`
+3. Copy the files into this folder
+4. Enable "Obsidian Unhide" in Community Plugins
+
 # Test Vault
 
 This is a test Obsidian vault for testing the AI README Unhide plugin.
