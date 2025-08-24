@@ -56,10 +56,8 @@ jobs:
       - name: Update manifest version
         run: |
           cd plugin-files
-          # Update manifest.json with GitVersion
           jq --arg version "${{ steps.gitversion.outputs.semVer }}" '.version = $version' manifest.json > tmp.json && mv tmp.json manifest.json
           echo "Updated manifest.json version to ${{ steps.gitversion.outputs.semVer }}"
-          cat manifest.json
           
       - name: Install dependencies
         run: |
