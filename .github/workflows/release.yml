@@ -77,10 +77,10 @@ jobs:
           ls -la main.js manifest.json
           echo "Build verification complete for ref: ${{ github.ref_name }} (type: ${{ github.ref_type }})"
           
-      # Create release artifacts for release-eligible branches and tags
+      # Create release artifacts only for: develop, release/*, and tags (NOT master branch pushes)
       - name: Create release archive
         if: |
-          contains(fromJson('["master", "develop"]'), github.ref_name) || 
+          github.ref_name == 'develop' || 
           startsWith(github.ref_name, 'release/') ||
           github.ref_type == 'tag'
         run: |
@@ -93,7 +93,7 @@ jobs:
           
       - name: Check if version already exists
         if: |
-          contains(fromJson('["master", "develop"]'), github.ref_name) || 
+          github.ref_name == 'develop' || 
           startsWith(github.ref_name, 'release/') ||
           github.ref_type == 'tag'
         id: check_release
@@ -110,7 +110,7 @@ jobs:
           
       - name: Create Release with GitHub CLI
         if: |
-          (contains(fromJson('["master", "develop"]'), github.ref_name) || 
+          (github.ref_name == 'develop' || 
            startsWith(github.ref_name, 'release/') ||
            github.ref_type == 'tag') &&
           steps.check_release.outputs.exists == 'false'
@@ -120,9 +120,6 @@ jobs:
             RELEASE_TYPE="🏷️ Tagged Release"
             PRERELEASE=""
             NOTES="Manual tagged release - Obsidian AI README Unhide plugin ${{ github.ref_name }}"
-          elif [ "${{ github.ref_name }}" = "master" ]; then
-            RELEASE_TYPE="🚀 Production Release"
-            PRERELEASE=""
           elif [ "${{ github.ref_name }}" = "develop" ]; then
             RELEASE_TYPE="🧪 Development Release"
             PRERELEASE="--prerelease"
@@ -143,13 +140,15 @@ jobs:
           
       - name: Log Build/Release Status
         run: |
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+          if [ "${{ github.ref_type }}" = "tag" ]; then
             if [ "${{ steps.check_release.outputs.exists }}" == "true" ]; then
               echo "✅ Build completed for tag ${{ github.ref_name }}. Release v${{ steps.gitversion.outputs.semVer }} already exists, skipping creation"
             else
               echo "✅ Build completed for tag ${{ github.ref_name }}. Successfully created tagged release v${{ steps.gitversion.outputs.semVer }}"
             fi
-          elif [[ "${{ github.ref_name }}" == "master" || "${{ github.ref_name }}" == "develop" || "${{ github.ref_name }}" == release/* ]]; then
+          elif [ "${{ github.ref_name }}" = "master" ]; then
+            echo "✅ Build completed for ${{ github.ref_name }}. No release created (releases only on tag pushes for master)"
+          elif [ "${{ github.ref_name }}" = "develop" ] || [[ "${{ github.ref_name }}" == release/* ]]; then
             if [ "${{ steps.check_release.outputs.exists }}" == "true" ]; then
               echo "✅ Build completed for ${{ github.ref_name }}. Release v${{ steps.gitversion.outputs.semVer }} already exists, skipping creation"
             else
