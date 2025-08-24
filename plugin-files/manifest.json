@@ -1,0 +1,11 @@
+{
+	"id": "ai-readme-unhide",
+	"name": "AI README Unhide",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Reveals hidden .ai/README.md files with advanced clone management, sync detection, and seamless UI integration",
+	"author": "9swampy",
+	"authorUrl": "https://github.com/9swampy/obsidian-unhide",
+	"isDesktopOnly": false,
+	"main": "main.js"
+}

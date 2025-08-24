@@ -1,3 +1,18 @@
+# Obsidian workspace files
 /.obsidian/plugins
 /.obsidian/workspace.json
+
+# Build outputs (generated files)
+/plugin-files/main.js
+
+# Node.js dependencies  
 /plugin-files/node_modules
+
+# Development files
+*.log
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
