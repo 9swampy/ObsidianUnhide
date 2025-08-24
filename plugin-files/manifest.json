@@ -6,6 +6,6 @@
 	"description": "Reveals hidden .ai/README.md files with advanced clone management, sync detection, and seamless UI integration",
 	"author": "9swampy",
 	"authorUrl": "https://github.com/9swampy/obsidian-unhide",
-	"isDesktopOnly": false,
+	"isDesktopOnly": true,
 	"main": "main.js"
 }
